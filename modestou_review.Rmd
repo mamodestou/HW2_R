@@ -9,22 +9,51 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+Hello Lakpa,
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+Overall, excellent job! I have a few suggestons for you:
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+1. When I ran your R Markdown file the first time, I couldn't run it because of the command "View (snp_position)" on  line # 53. The View() command cannot be used inside an R Markdown file when knitting. So I will sugggest either removing it from the R Markdown file (you don't really need it since you include the command "head (snp_position)") or use the command "if (interactive()) View(snp_position). This command ensures that View() only runs in the RStudio console and not during knitting.
 
-```{r cars}
-summary(cars)
+2. You can modify your first chunk for data visualization, as shown below, to have the chromosomes appropriately numbered on the x-axis. By the way you can name your chunks for easy reference as {r chunk_name}.
+
+```{r}
+
+# Format Chromosomes: Pad numbers with leading zeros, but keep "unknown" and "multiple"
+
+maize_snp$Chromosome <- ifelse(maize_snp$Chromosome %in% c("unknown", "multiple"),
+                           maize_snp$Chromosome,
+                           sprintf("%02d", as.numeric(maize_snp$Chromosome)))
+teosinte_snp$Chromosome <- ifelse(teosinte_snp$Chromosome %in% c("unknown", "multiple"),
+                              teosinte_snp$Chromosome,
+                              sprintf("%02d", as.numeric(teosinte_snp$Chromosome)))
+
+# Calculate the number of SNPs per chromosome for maize and teosinte
+maize_snps_per_chr <- maize_snp %>%
+  group_by(Chromosome) %>%
+  summarize(n = n())
+
+teosinte_snps_per_chr <- teosinte_snp %>%
+  group_by(Chromosome) %>%
+  summarize(n = n())
+
+# Combine the data frames for maize and teosinte, adding a Group column
+snps_per_chr <- bind_rows(
+  mutate(maize_snps_per_chr, Group = "Maize"),
+  mutate(teosinte_snps_per_chr, Group = "Teosinte")
+)
+
+# Dot plot to visualize SNP counts per chromosome
+ggplot(snps_per_chr, aes(x = factor(Chromosome), y = n, color = Group)) +
+  geom_point(size = 4, position = position_dodge(width = 0.5)) +
+  labs(title = "Number of SNPs per Chromosome (Dot Plot)",
+       x = "Chromosome", y = "Number of SNPs") +
+  theme_minimal() +
+  scale_color_manual(values = c("Maize" = "blue", "Teosinte" = "green"))
+
+#From graph, chromosome 1 has the highest SNP where as the chromosome 10 has lowest SNPs.
 ```
 
-## Including Plots
+3. I have the same graphs for the SNP numbers per chromosome and the distribution of SNPs across chromosomes. I think, however, it doesn't make sense that the number and distribution of SNPs for maize and teosinte are precisely the same. They shouldn't; maize likely has many more SNPs than its ancestor, teosinte. Unfortunately, I can't offer any suggestions here. I am still struggling myself to figure out how to fix it. 
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+4. The last thing I want to mention is that you may want to include the intermediate files you generated to get to the two final output files for maize and teosinte.
