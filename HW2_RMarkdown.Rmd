@@ -422,7 +422,6 @@ for (i in 1:10) {
 
 **1.** **SNPs per Chromosome and their Distribution across chromosomes**:
 
-# Load data
 
 ```{r SNP_number}
 # Load genotypes and SNP position data
