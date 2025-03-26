@@ -66,7 +66,7 @@ by_group_plot <- ggplot (data = SNP_Teosinte_Maize_Groups) + geom_bar(mapping = 
   ggtitle("Single Nucleotide Polymorphism per Sample") 
 by_group_plot
 
-### Maize has far exceeding number of SNPs across all Chromosomes when compared to Teosinte.
+### Maize has far exceeding number of SNPs across all Chromosomes when compared to Teosinte._kibger 
 ```
 
 ```{r, echo=FALSE, out.width="100%"}

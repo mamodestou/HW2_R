@@ -425,34 +425,38 @@ for (i in 1:10) {
 # Load data
 
 ```{r SNP_number}
-# Read in data
-maize <- fread("Common_files/joined_final.txt", sep = "\t", header = TRUE)
-teosinte <- fread("Common_files/joined_final.txt", sep = "\t", header = TRUE)
-# Format Chromosomes: Pad numbers with leading zeros, but keep "unknown" and "multiple"
-maize$Chromosome <- ifelse(maize$Chromosome %in% c("unknown", "multiple"),
-                           maize$Chromosome,
-                           sprintf("%02d", as.numeric(maize$Chromosome)))
-teosinte$Chromosome <- ifelse(teosinte$Chromosome %in% c("unknown", "multiple"),
-                              teosinte$Chromosome,
-                              sprintf("%02d", as.numeric(teosinte$Chromosome)))
-# Count SNPs per chromosome
-maize_snps_per_chr <- maize %>%
-  group_by(Chromosome) %>%
-  summarise(n = n())
-teosinte_snps_per_chr <- teosinte %>%
-  group_by(Chromosome) %>%
-  summarise(n = n())
-# Add group column
-snps_per_chr <- bind_rows(
-  mutate(maize_snps_per_chr, Group = "Maize"),
-  mutate(teosinte_snps_per_chr, Group = "Teosinte")
+# Load genotypes and SNP position data
+fang <- read_tsv("Common_files/fang_et_al_genotypes.txt")
+snp_pos <- read_tsv("Common_files/snp_position.txt")
+# Filter only for maize and teosinte groups
+fang <- fang %>% filter(Group %in% c("ZMMIL", "ZMMLR", "ZMMMR", "ZMPBA", "ZMPIL", "ZMPJA"))
+# Make genotype data long (1 row per SNP per sample)
+tidy_fang <- fang %>%
+  pivot_longer(
+    cols = -c(Sample_ID, Group, JG_OTU), 
+    names_to = "SNP_ID", 
+    values_to = "Genotype"
+  )
+# Merge with SNP position data to get chromosome info
+tidy_with_chr <- merge(tidy_fang, snp_pos[, c("SNP_ID", "Chromosome")], by = "SNP_ID")
+# Add a column indicating Maize or Teosinte
+tidy_with_chr <- tidy_with_chr %>%
+  mutate(type = if_else(Group %in% c("ZMMIL", "ZMMLR", "ZMMMR"), "Maize", "Teosinte"))
+# Pad chromosome numbers with leading zeros but keep "unknown"/"multiple"
+tidy_with_chr$Chromosome <- ifelse(
+  tidy_with_chr$Chromosome %in% c("unknown", "multiple"),
+  tidy_with_chr$Chromosome,
+  sprintf("%02d", as.numeric(tidy_with_chr$Chromosome))
 )
-# Use friendly, modern color palette
-modern_colors <- c("Maize" = "#1f77b4", "Teosinte" = "#ff7f0e") 
-# Plot SNPs per chromosome
-ggplot(snps_per_chr, aes(x = factor(Chromosome), y = n, fill = Group)) +
+# Count SNPs for each of the maize and teosinte chromosomes
+snps_per_chr <- tidy_with_chr %>%
+  group_by(Chromosome, type) %>%
+  summarise(n = n(), .groups = "drop")
+# Plot
+ggplot(snps_per_chr, aes(x = Chromosome, y = n, fill = type)) +
   geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.7) +
-  geom_text(aes(label = n), vjust = -0.6, position = position_dodge(width = 0.8), size = 3.2) +
+  scale_fill_manual(values = c("Maize" = "#1f77b4", "Teosinte" = "#ff7f0e")) +
+  scale_y_continuous(labels = scales::scientific) +
   labs(
     title = "SNP Count by Chromosome",
     subtitle = "Comparison between Maize and Teosinte",
@@ -460,58 +464,21 @@ ggplot(snps_per_chr, aes(x = factor(Chromosome), y = n, fill = Group)) +
     y = "Number of SNPs",
     fill = "Group"
   ) +
-  scale_fill_manual(values = modern_colors) +
   coord_cartesian(clip = "off") +
   theme_minimal(base_size = 12) +
   theme(
     plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
     plot.subtitle = element_text(size = 12, hjust = 0.5, color = "gray40"),
-    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1),
     axis.text.y = element_text(size = 10),
     legend.position = "top",
     legend.title = element_text(face = "bold")
   )
 ```
 
-##### *The number of SNPs is the same for maize and teosinte across the ten chromosomes. Chromosome 01 has the highest number of SNPs, and chromosome 10 the lowest.*
 
+##### *There are more SNPs, and hence SNP positions, in Maize compared to Teosinte across all ten chromosomes. Chromosome 01 has the highest number of SNPs, and chromosome 10 the lowest.*
 
-```{r snp_distribution}
-# Load datasets
-maize_snp <- fread("Common_files/maize_data.txt", sep = "\t", header = TRUE)
-teosinte_snp <- fread("Common_files/teosinte_data.txt", sep = "\t", header = TRUE)
-# Remove 'unknown' and 'multiple' chromosomes
-filtered_maize_snp <- maize_snp %>%
-  filter(!(Chromosome %in% c("unknown", "multiple")))
-filtered_teosinte_snp <- teosinte_snp %>%
-  filter(!(Chromosome %in% c("unknown", "multiple")))
-# Convert Position to numeric (suppress warnings)
-filtered_maize_snp$Position <- suppressWarnings(as.numeric(filtered_maize_snp$Position))
-filtered_teosinte_snp$Position <- suppressWarnings(as.numeric(filtered_teosinte_snp$Position))
-# Format Chromosomes: Pad numbers with leading zeros
-filtered_maize_snp$Chromosome <- sprintf("%02d", as.numeric(filtered_maize_snp$Chromosome))
-filtered_teosinte_snp$Chromosome <- sprintf("%02d", as.numeric(filtered_teosinte_snp$Chromosome))
-# Create a friendly palette for chromosomes
-friendly_palette <- viridis(10, option = "C") 
-# Plot 1: Maize SNP distribution
-ggplot(filtered_maize_snp, aes(x = as.numeric(Position), fill = Chromosome)) +
-  geom_density(alpha = 0.8) +
-  facet_wrap(~ Chromosome, ncol = 2) +
-  scale_fill_manual(values = friendly_palette) +
-  theme_light() +
-  labs(x = "Chromosome Position", y = "SNP Density", 
-       title = "Maize Distribution of SNPs Across Chromosomes") +
-  theme(legend.position = "none")
-# Plot 2: Teosinte SNP distribution
-ggplot(filtered_teosinte_snp, aes(x = as.numeric(Position), fill = Chromosome)) +
-  geom_density(alpha = 0.8) +
-  facet_wrap(~ Chromosome, ncol = 2) +
-  scale_fill_manual(values = friendly_palette) +
-  theme_light() +
-  labs(x = "Chromosome Position", y = "SNP Density", 
-       title = "Teosinte Distribution of SNPs Across Chromosomes") +
-  theme(legend.position = "none")
-```
 
 
 **2.** **Missing Data and Amount of Heterozygosity**:
