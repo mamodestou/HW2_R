@@ -420,7 +420,7 @@ for (i in 1:10) {
 # *Part II - Data Vizualization*
 
 
-**1.** **SNPs per Chromosome and their Distribution across chromosomes**:
+**1.** **SNPs per Chromosome**:
 
 
 ```{r SNP_number}
